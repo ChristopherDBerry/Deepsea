@@ -1,0 +1,32 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Deepsea Data{% endblock %}</title>
+    {% block head %}{% endblock %}
+    <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+</head>
+<body>
+    <header>
+        <h1>{% block header %}DeepSea Data{% endblock %}</h1>
+        <nav>
+            <ul>
+                <li><a href="/charts/main/">Sensor Data</a></li>
+                <li><a href="/normalizer/">Configure Normalizer</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main>
+        {% block content %}
+        <!-- Child templates will override this block with their own content -->
+        {% endblock %}
+    </main>
+
+    <footer>
+        &copy; {{ year }} DeepSea Data
+    </footer>
+</body>
+</html>
