@@ -1,4 +1,7 @@
 import csv
+import datetime
+import numpy as np
+from sklearn.linear_model import LinearRegression
 
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
@@ -39,10 +42,20 @@ class SensorDataUploadView(APIView):
         if field is None:
             if not self.regression_data:
                 raise SensorDataNormalizationError(
-                    f"Could not normalize {field_name}")
-            # replace with linear regression, for now just use previous value
-            return (field, getattr(self.regression_data[0],
-                                   f"{field_name}_normalized"))
+                    f"Not enough data to normalize {field_name}")
+            # Use linear regression to predict the missing value
+            timestamps = [x.datetime.timestamp()
+                          for x in self.regression_data]
+            points = [getattr(x, f"{field_name}_normalized")
+                      for x in self.regression_data]
+            # Convert the target timestamp to a timestamp value
+            target_timestamp_value = self.now.timestamp()
+            regression = LinearRegression()
+            regression.fit(np.array(timestamps).reshape(-1, 1), points)
+            predicted = regression.predict(
+                np.array([[target_timestamp_value]]))[0]
+            return (field, predicted)
+
         # outlier
         return (field, None)
 
@@ -54,7 +67,8 @@ class SensorDataUploadView(APIView):
         csv_line = request.data.get('sensors', None)
 
         # Cache here to avoid multiple queries
-        self.regression_data = SensorData.objects.all()[:10]
+        self.regression_data = SensorData.objects.all()[:20]
+
         csv_data = csv.reader([csv_line])
         row = next(csv_data)
         del row[0]
@@ -63,7 +77,7 @@ class SensorDataUploadView(APIView):
             return Response({'error': "Invalid number of fields"},
                             status=status.HTTP_400_BAD_REQUEST)
 
-        datetime = row[2]
+        self.now = datetime.datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S")
         try:
             (latitude, latitude_correction
                 ) = self.normalize_field(row[0], 'latitude')
@@ -93,7 +107,7 @@ class SensorDataUploadView(APIView):
                             status=status.HTTP_400_BAD_REQUEST)
 
         sensor_data = SensorData(
-            datetime=datetime,
+            datetime=self.now,
             latitude=latitude,
             latitude_correction=latitude_correction,
             longitude=longitude,
