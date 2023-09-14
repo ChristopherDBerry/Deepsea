@@ -1,0 +1,44 @@
+{% extends "../base.html" %}
+
+{% block title %}Page Title - Your Website{% endblock %}
+
+{% block head %}
+<script src="https://d3js.org/d3.v7.min.js"></script>
+{% endblock %}
+
+{% block header %}Welcome to Our Website{% endblock %}
+
+{% block content %}
+<h1>Sensor Data</h1>
+<label for="field-select">Field:</label>
+<select id="field-select">
+    <option value="latitude">Latitude</option>
+    <option value="longitude">Longitude</option>
+    <option value="speed_overground">Speed Overground</option>
+    <option value="stw">STW</option>
+    <option value="direction">Direction</option>
+    <option value="current_ucomp">Current Ucomp</option>
+    <option value="current_vcomp">Current Vcomp</option>
+    <option value="draft_aft">Draft Aft</option>
+    <option value="draft_fore">Draft Fore</option>
+    <option value="comb_wind_swell_wave_height">comb_wind_swell_wave_height</option>
+    <option value="power">Power</option>
+</select>
+<label for="normalization-select">Normalization:</label>
+<select id="normalization-select">
+    <option value="bollinger">Bollinger Bands</option>
+</select>
+
+
+<div id="line-chart"></div>
+
+<script>
+    d3.json('/api/sensor/sensor-data/').then(data => {
+        console.log(data);
+    })
+
+    // JavaScript code to render D3 line chart
+    // Use D3 to fetch data and render the chart based on the selected field
+    // ...
+</script>
+{% endblock %}
