@@ -1,12 +1,9 @@
 {% extends "../base.html" %}
-
-{% block title %}Page Title - Your Website{% endblock %}
+{% load static %}
 
 {% block head %}
 <script src="https://d3js.org/d3.v7.min.js"></script>
 {% endblock %}
-
-{% block header %}Welcome to Our Website{% endblock %}
 
 {% block content %}
 <h1>Sensor Data</h1>
@@ -24,21 +21,61 @@
     <option value="comb_wind_swell_wave_height">comb_wind_swell_wave_height</option>
     <option value="power">Power</option>
 </select>
-<label for="normalization-select">Normalization:</label>
-<select id="normalization-select">
-    <option value="bollinger">Bollinger Bands</option>
-</select>
+<br><br>
+<label for="realtime-check">Realtime:</label>
+<input type="checkbox" id="realtime-check" checked>
+<br><br>
 
+<svg id="rawData"></svg>
+<svg id="normalizedData"></svg>
 
-<div id="line-chart"></div>
-
+<script src="{% static '/js/dscharts/dscharts.js' %}"></script>
 <script>
-    d3.json('/api/sensor/sensor-data/').then(data => {
-        console.log(data);
-    })
+    const API = '/api/sensor/sensor-data/';
+    let DATA = undefined;
+    let FIELD = 'latitude';
+    let REALTIME = true;
 
-    // JavaScript code to render D3 line chart
-    // Use D3 to fetch data and render the chart based on the selected field
-    // ...
+    function fetchSensorData() {
+        const api = REALTIME ? `${API}?limit=1000` : API;
+        fetch(api)
+            .then(function(response) { return response.json(); })
+            .then(function(data) {
+                DATA = data
+                updateCharts();
+            })
+            .catch(function(err) { console.log(err); })
+    }
+
+    function updateCharts() {
+        let parsedData = parseData(DATA, FIELD, false);
+        drawChart(parsedData, '#rawData', `Raw ${FIELD}`);
+        parsedData = parseData(DATA, FIELD, true);
+        drawChart(parsedData, '#normalizedData', `Normalized ${FIELD}`);
+    }
+
+    document.addEventListener("DOMContentLoaded", function(event) {
+
+        fetchSensorData();
+
+        const fieldSelect = document.getElementById("field-select");
+        fieldSelect.addEventListener("change", (event) => {
+            FIELD = event.target.value;
+            updateCharts();
+        });
+
+        let intervalId = setInterval(fetchSensorData, 2000);
+        const checkbox = document.getElementById('realtime-check');
+        checkbox.addEventListener('change', function() {
+            clearInterval(intervalId);
+            REALTIME = checkbox.checked;
+            fetchSensorData();
+            if (checkbox.checked) intervalId = setInterval(
+                fetchSensorData, 2000);
+        });
+
+    });
+
 </script>
+
 {% endblock %}

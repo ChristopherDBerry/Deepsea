@@ -30,8 +30,15 @@ class SensorDataViewSet(viewsets.ModelViewSet):
     queryset = SensorData.objects.all().order_by('-id')
     serializer_class = SensorDataSerializer
 
+    def get_queryset(self):
+        limit = self.request.query_params.get('limit')
+        if not limit:
+            return SensorData.objects.all()
+        limit = int(limit)
+        return SensorData.objects.all()[:limit]
 
-@method_decorator(csrf_exempt, name='dispatch') # No authentication for this demo
+
+@method_decorator(csrf_exempt, name='dispatch')  # No auth for demo
 class SensorDataUploadView(APIView):
     serializer_class = SensorUploadSerializer
 
