@@ -40,4 +40,5 @@ class SensorDataAdmin(admin.ModelAdmin):
         'power_normalized',
     )
 
+
 admin.site.register(SensorData, SensorDataAdmin)

@@ -18,8 +18,8 @@ urlpatterns = [
     ),
 
     path('api/sensor/', include('dsdata.urls')),
-    path('charts/', include('dscharts.urls')),
     path('dsadmin/', include('dsadmin.urls')),
+    path('', include('dscharts.urls')),
 ]
 
 if settings.DEBUG:
