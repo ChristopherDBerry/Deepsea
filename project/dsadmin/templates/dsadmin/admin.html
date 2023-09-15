@@ -1,0 +1,31 @@
+{% extends "../base.html" %}
+{% load static %}
+
+
+{% block head %}
+{% endblock %}
+
+{% block content %}
+<h1>Admin section</h1>
+<h2>Operations</h2>
+<ul>
+    <li>Reset sensor data: <button id="resetButton">Reset</button></li>
+</ul>
+<h2>Links</h2>
+<ul>
+    <li>Start Emitter:<pre>docker compose run --rm emitter sh -c "python emitter.py -f DBdataset.csv -d 200"</pre></li>
+    <li>Currents API: <a href='http://localhost:5000/get_currents_data?longitude=1&latitude=2'>http://localhost:5000/get_currents_data?longitude=1&latitude=2</a></li>
+</ul>
+
+<form id="resetForm" style="display: none;" method="post">
+{% csrf_token %}
+    <input type="hidden" id="reset" name="reset" value="1">
+</form>
+<script>
+    document.getElementById('resetButton').addEventListener('click', function() {
+        var form = document.getElementById('resetForm');
+        form.submit();
+    });
+</script>
+
+{% endblock %}

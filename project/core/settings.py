@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'dsdata.apps.DsdataConfig',
     'dscharts.apps.DschartsConfig',
+    'dsadmin.apps.DsadminConfig',
 ]
 
 MIDDLEWARE = [
