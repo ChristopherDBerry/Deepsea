@@ -92,10 +92,6 @@ class SensorData(models.Model):
     def power_normalized(self):
         return ((self.power or 0.0) + (self.power_correction or 0.0))
 
-    @property
-    def is_normalized(self):
-        return (self.latitude_correction is not None)
-
     def __str__(self):
         return (f"SensorData({self.latitude}, "
                 f"{self.longitude}, {self.datetime})")

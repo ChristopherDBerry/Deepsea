@@ -3,16 +3,12 @@ import datetime
 import numpy as np
 from sklearn.linear_model import LinearRegression
 
-from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 
 from rest_framework import status, viewsets
-from rest_framework.decorators import api_view
-from rest_framework.parsers import JSONParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiTypes
 
 from .models import SensorData
 from .serializers import SensorDataSerializer, SensorUploadSerializer
@@ -41,40 +37,83 @@ class SensorDataViewSet(viewsets.ModelViewSet):
 @method_decorator(csrf_exempt, name='dispatch')  # No auth for demo
 class SensorDataUploadView(APIView):
     serializer_class = SensorUploadSerializer
+    historic_length = 20
+
+    def outlier_bands(self, field_name):
+        """ Calculate outlier bands (modified Bollinger bands)
+        for a specific field in the model. """
+        if len(self.historic_data) < self.historic_length:
+            raise SensorDataNormalizationError(
+                f"Not enough data for outlier bands for {field_name}")
+        # Skip if any of the very recent historic data is unreliable
+        if (getattr(self.historic_data[0], f"{field_name}_correction") or
+            getattr(self.historic_data[1], f"{field_name}_correction") or
+                getattr(self.historic_data[2], f"{field_name}_correction")):
+            raise SensorDataNormalizationError(
+                f"Not enough reliable data for outlier bands for {field_name}")
+        k = 5
+        data = [getattr(x, f"{field_name}_normalized")
+                for x in self.historic_data]
+        # Calculate the moving average
+        moving_average = sum(data) / len(data)
+        # Calculate the moving standard deviation
+        moving_std = (sum((x - moving_average) ** 2 for x in data
+                          ) / (len(data) - 1)) ** 0.5
+        # Increase k bassed on amount of _correction historical data,
+        # eg higher tolerance for outliers if historic data is unreliable
+        for i, row in enumerate(self.historic_data):
+            bias = 10 * 0.9 ** i  # bias towards more recent unreliable data
+            if getattr(row, f"{field_name}_correction") is not None:
+                k += bias
+        # Calculate the upper and lower bands
+        upper_band = moving_average + k * moving_std
+        lower_band = moving_average - k * moving_std
+        return (upper_band, moving_average, lower_band)
+
+    def predict_value(self, field_name):
+        """ Predict the value of a field based on the historic data"""
+        if not self.historic_data:
+            raise SensorDataNormalizationError(
+                f"Not enough data to predict missing {field_name}")
+        # Use linear regression to predict the missing value
+        timestamps = [x.datetime.timestamp()
+                      for x in self.historic_data]
+        points = [getattr(x, f"{field_name}_normalized")
+                  for x in self.historic_data]
+        # Convert the target timestamp to a timestamp value
+        target_timestamp_value = self.now.timestamp()
+        regression = LinearRegression()
+        regression.fit(np.array(timestamps).reshape(-1, 1), points)
+        predicted = regression.predict(
+            np.array([[target_timestamp_value]]))[0]
+        return predicted
 
     def normalize_field(self, field, field_name):
-        """ handle missing fields and outliers"""
+        """ handle missing fields and outliers, return (value, correction) """
         field = float(field) if field != '' else None
-        # missing
         if field is None:
-            if not self.regression_data:
-                raise SensorDataNormalizationError(
-                    f"Not enough data to normalize {field_name}")
-            # Use linear regression to predict the missing value
-            timestamps = [x.datetime.timestamp()
-                          for x in self.regression_data]
-            points = [getattr(x, f"{field_name}_normalized")
-                      for x in self.regression_data]
-            # Convert the target timestamp to a timestamp value
-            target_timestamp_value = self.now.timestamp()
-            regression = LinearRegression()
-            regression.fit(np.array(timestamps).reshape(-1, 1), points)
-            predicted = regression.predict(
-                np.array([[target_timestamp_value]]))[0]
+            predicted = self.predict_value(field_name)
             return (field, predicted)
-
-        # outlier
-        return (field, None)
+        try:
+            (upper_band, _, lower_band) = self.outlier_bands(field_name)
+        except SensorDataNormalizationError:
+            return (field, None)
+        correction = None
+        if field > upper_band or field < lower_band:
+            predicted = self.predict_value(field_name)
+            correction = predicted - field
+        return (field, correction)
 
     def post(self, request, format=None):
         serializer = SensorUploadSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.errors,
+                            status=status.HTTP_400_BAD_REQUEST)
 
         csv_line = request.data.get('sensors', None)
 
-        # Cache here to avoid multiple queries
-        self.regression_data = SensorData.objects.all()[:20]
+        # Cache to avoid multiple queries
+        self.historic_data = SensorData.objects.all()[:self.historic_length]
 
         csv_data = csv.reader([csv_line])
         row = next(csv_data)
@@ -86,29 +125,29 @@ class SensorDataUploadView(APIView):
 
         self.now = datetime.datetime.strptime(row[2], "%Y-%m-%d %H:%M:%S")
         try:
-            (latitude, latitude_correction
-                ) = self.normalize_field(row[0], 'latitude')
-            (longitude, longitude_correction
-                ) = self.normalize_field(row[1], 'longitude')
-            (speed_overground, speed_overground_correction
-                ) = self.normalize_field(row[3], 'speed_overground')
-            (stw, stw_correction
-                ) = self.normalize_field(row[4], 'stw')
-            (direction, direction_correction
-                ) = self.normalize_field(row[5], 'direction')
-            (current_ucomp, current_ucomp_correction
-                ) = self.normalize_field(row[6], 'current_ucomp')
-            (current_vcomp, current_vcomp_correction
-                ) = self.normalize_field(row[7], 'current_vcomp')
-            (draft_aft, draft_aft_correction
-                ) = self.normalize_field(row[8], 'draft_aft')
-            (draft_fore, draft_fore_correction
-                ) = self.normalize_field(row[9], 'draft_fore')
+            (latitude, latitude_correction) = self.normalize_field(
+                                                row[0], 'latitude')
+            (longitude, longitude_correction) = self.normalize_field(
+                                                 row[1], 'longitude')
+            (speed_overground, speed_overground_correction) = (
+                                    self.normalize_field(row[3],
+                                                         'speed_overground'))
+            (stw, stw_correction) = self.normalize_field(row[4], 'stw')
+            (direction, direction_correction) = self.normalize_field(
+                                                 row[5], 'direction')
+            (current_ucomp, current_ucomp_correction) = self.normalize_field(
+                                                     row[6], 'current_ucomp')
+            (current_vcomp, current_vcomp_correction) = self.normalize_field(
+                                                     row[7], 'current_vcomp')
+            (draft_aft, draft_aft_correction) = self.normalize_field(
+                                                 row[8], 'draft_aft')
+            (draft_fore, draft_fore_correction) = self.normalize_field(
+                                                  row[9], 'draft_fore')
             (comb_wind_swell_wave_height,
-                comb_wind_swell_wave_height_correction
-                    ) = self.normalize_field(row[10], 'comb_wind_swell_wave_height')
-            (power, power_correction
-                ) = self.normalize_field(row[11], 'power')
+                comb_wind_swell_wave_height_correction) = (
+                    self.normalize_field(row[10],
+                                         'comb_wind_swell_wave_height'))
+            (power, power_correction) = self.normalize_field(row[11], 'power')
         except SensorDataNormalizationError as e:
             return Response({'error': str(e)},
                             status=status.HTTP_400_BAD_REQUEST)
@@ -142,4 +181,3 @@ class SensorDataUploadView(APIView):
         sensor_data.save()
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
