@@ -92,6 +92,22 @@ class SensorData(models.Model):
     def power_normalized(self):
         return ((self.power or 0.0) + (self.power_correction or 0.0))
 
+    sea_currents_speed = models.FloatField(null=True, blank=True)
+    sea_currents_speed_correction = models.FloatField(null=True, blank=True)
+
+    @property
+    def sea_currents_speed_normalized(self):
+        return ((self.sea_currents_speed or 0.0) +
+                (self.sea_currents_speed_correction or 0.0))
+
+    sea_currents_angle = models.FloatField(null=True, blank=True)
+    sea_currents_angle_correction = models.FloatField(null=True, blank=True)
+
+    @property
+    def sea_currents_angle_normalized(self):
+        return ((self.sea_currents_angle or 0.0) +
+                (self.sea_currents_angle_correction or 0.0))
+
     def __str__(self):
         return (f"SensorData({self.latitude}, "
                 f"{self.longitude}, {self.datetime})")

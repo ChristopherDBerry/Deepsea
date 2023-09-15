@@ -12,6 +12,7 @@ from rest_framework.views import APIView
 
 from .models import SensorData
 from .serializers import SensorDataSerializer, SensorUploadSerializer
+from . import utils
 
 
 class SensorDataNormalizationError(Exception):
@@ -178,6 +179,26 @@ class SensorDataUploadView(APIView):
             power=power,
             power_correction=power_correction,
         )
+        sensor_data.save()
+
+        try:
+            currents = utils.currents_lookup(sensor_data.latitude_normalized,
+                                             sensor_data.longitude_normalized)
+        except Exception:
+            currents = {'sea_currents_speed': None,
+                        'sea_currents_angle': None}
+        (sea_currents_speed, sea_currents_speed_correction
+         ) = self.normalize_field(
+            currents['sea_currents_speed'], 'sea_currents_speed')
+        (sea_currents_angle, sea_currents_angle_correction
+         ) = self.normalize_field(
+            currents['sea_currents_angle'], 'sea_currents_angle')
+        sensor_data.sea_currents_speed = sea_currents_speed
+        sensor_data.sea_currents_speed_correction = (
+            sea_currents_speed_correction)
+        sensor_data.sea_currents_angle = sea_currents_angle
+        sensor_data.sea_currents_angle_correction = (
+            sea_currents_angle_correction)
         sensor_data.save()
 
         return Response(serializer.data, status=status.HTTP_201_CREATED)

@@ -4,3 +4,4 @@ django-cors-headers==4.2.0
 drf-spectacular>=0.15.1,<0.16
 scikit-learn
 numpy
+requests>=2.31.0,<3.0

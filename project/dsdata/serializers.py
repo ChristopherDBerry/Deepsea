@@ -19,6 +19,8 @@ class SensorDataSerializer(serializers.ModelSerializer):
             'draft_fore_normalized',
             'comb_wind_swell_wave_height_normalized',
             'power_normalized',
+            'sea_currents_speed_normalized',
+            'sea_currents_angle_normalized',
         ]
 
     def __init__(self, *args, **kwargs):
