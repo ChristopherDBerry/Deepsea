@@ -27,3 +27,16 @@ services:
       dockerfile: Dockerfile.emitter
     volumes:
       - ./emitter/:/usr/src/app/
+
+  meteo:
+    build:
+      context: ./meteo
+      dockerfile: Dockerfile.meteo
+    command: >
+        sh -c "python app.py"
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=development
+    volumes:
+      - ./meteo:/usr/src/app/
