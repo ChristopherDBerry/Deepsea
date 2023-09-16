@@ -81,7 +81,6 @@ class SensorDataUploadView(APIView):
                       for x in self.historic_data]
         points = [getattr(x, f"{field_name}_normalized")
                   for x in self.historic_data]
-        # Convert the target timestamp to a timestamp value
         target_timestamp_value = self.now.timestamp()
         regression = LinearRegression()
         regression.fit(np.array(timestamps).reshape(-1, 1), points)
@@ -181,10 +180,21 @@ class SensorDataUploadView(APIView):
         )
         sensor_data.save()
 
-        try:
-            currents = utils.currents_lookup(sensor_data.latitude_normalized,
-                                             sensor_data.longitude_normalized)
-        except Exception:
+        lookup_currents = True
+        for sensor in self.historic_data:
+            if sensor.sea_currents_speed is not None:
+                if (self.now - sensor.datetime).total_seconds() < 600:
+                    lookup_currents = False
+            break
+        if lookup_currents:
+            try:
+                currents = utils.currents_lookup(
+                    sensor_data.latitude_normalized,
+                    sensor_data.longitude_normalized)
+            except Exception:
+                currents = {'sea_currents_speed': None,
+                            'sea_currents_angle': None}
+        else:
             currents = {'sea_currents_speed': None,
                         'sea_currents_angle': None}
         (sea_currents_speed, sea_currents_speed_correction

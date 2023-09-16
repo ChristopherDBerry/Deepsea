@@ -9,5 +9,5 @@ def currents_lookup(latitude, longitude):
         data = response.json()
         return data
 
-    raise Exception("Could not retreive data from "
+    raise Exception("Could not retrieve data from "
                     "the currents microservice")
