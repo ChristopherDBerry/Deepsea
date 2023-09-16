@@ -38,6 +38,12 @@ class SensorDataAdmin(admin.ModelAdmin):
         'power',
         'power_correction',
         'power_normalized',
+        'sea_currents_speed',
+        'sea_currents_speed_correction',
+        'sea_currents_speed_normalized',
+        'sea_currents_angle',
+        'sea_currents_angle_correction',
+        'sea_currents_angle_normalized',
     )
 
 

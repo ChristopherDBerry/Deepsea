@@ -90,7 +90,10 @@ class SensorDataUploadView(APIView):
 
     def normalize_field(self, field, field_name):
         """ handle missing fields and outliers, return (value, correction) """
-        field = float(field) if field != '' else None
+        try:
+            field = float(field)
+        except (TypeError, ValueError):
+             field = None
         if field is None:
             predicted = self.predict_value(field_name)
             return (field, predicted)
@@ -178,14 +181,13 @@ class SensorDataUploadView(APIView):
             power=power,
             power_correction=power_correction,
         )
-        sensor_data.save()
 
         lookup_currents = True
         for sensor in self.historic_data:
             if sensor.sea_currents_speed is not None:
                 if (self.now - sensor.datetime).total_seconds() < 600:
                     lookup_currents = False
-            break
+                    break
         if lookup_currents:
             try:
                 currents = utils.currents_lookup(
